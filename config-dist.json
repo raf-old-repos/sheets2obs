@@ -1,0 +1,12 @@
+{
+    "sheetId": "1zXxxnFCQmm0mXGd4BY4IE2xZh0M4WfFB1_TzR_wAROE",
+    "tabname": "Score Entry",
+    "range": "B1:F13",
+    "dimension": "COLUMNS",
+    "apikey": "",
+    "obsaddress": "",
+    "obsauth": "",
+    "sceneName": "Scene",
+    "eventSubs": 20,
+    "polling": 2000
+}

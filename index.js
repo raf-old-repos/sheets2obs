@@ -5,9 +5,16 @@ const config = require('./config.json');
 
 
 
-const update = async (obs) => {
+
+
+
+
+
+const update = async (sceneList) => {
   const data = await sheetLoader.loadData();
-  
+
+  const batch = []
+
 
   const range = config.range;
   const startcell = range.split(":")[0].trim();
@@ -22,13 +29,9 @@ const update = async (obs) => {
   const coloffset = columnToNumber(startcol[0]);
   //console.log("colum offset to array is " + coloffset);
 
-  const sceneName = "Scene"
 
-  const sceneList = await obs.call('GetSceneItemList', {
-    sceneName
-  });
 
-  console.log(sceneList)
+
   await sceneList.sceneItems.forEach(async scene => {
 
 
@@ -47,65 +50,62 @@ const update = async (obs) => {
       console.log("Value for cell in source is " + cellvalue)
 
       if (cellvalue.length > 0) {
-        let color = null;
 
-        if (cellvalue.startsWith('?color')) {
-          const split = cellvalue.split(';');
-          cellvalue = split[1];
-          color = split[0].split('=')[1];
-          color = color.replace('#', '');
-          const color1 = color.substring(0, 2);
-          const color2 = color.substring(2, 4);
-          const color3 = color.substring(4, 6);
-          color = parseInt('ff' + color3 + color2 + color1, 16);
-        }
+        batch.push({
+          requestType: "SetInputSettings",
+          requestData: {
+            inputName: scene.sourceName,
+            inputSettings: {
+              text: cellvalue,
 
-        if (cellvalue.startsWith('?hide')) {
-
-          await obs.call("SetSceneItemEnabled", {
-            sceneName,
-            sceneItemId: scene.sceneItemId,
-            sceneItemEnabled: false
-          });
-
-        } else if (cellvalue.startsWith('?show')) {
-          await obs.call("SetSceneItemEnabled", {
-            sceneName,
-            sceneItemId: scene.sceneItemId,
-            sceneItemEnabled: true
-          });
-        }
-
-       
-
-        // Update to OBS
-        await obs.call("SetInputSettings", {
-          inputName: scene.sourceName,
-          inputSettings: {
-            text: cellvalue,
-            color
+            }
           }
-        });
+        }
+        )
 
-        console.log(`Updated: ${reference} to OBS: ${scene.sourceName}`);
       } else {
         console.log(`Field is empty`)
-        await obs.call("SetInputSettings", {
-          inputName: scene.sourceName,
-          inputSettings: {
-            text: "Empty Field",
-            color
+        batch.push({
+          requestType: "SetInputSettings",
+          requestData: {
+            inputName: scene.sourceName,
+            inputSettings: {
+              text: "Empty Field",
+
+            }
           }
-        });
+        }
+        )
       }
     }
-
   });
+
+  return batch
+}
+
+const getSceneList = async (obs) => {
+
+  const { sceneName } = config
+
+  console.log(sceneName)
+  const sceneList = await obs.call('GetSceneItemList', {
+    sceneName
+  });
+
+  console.log(sceneList)
+
+  return sceneList
 }
 
 const main = async () => {
   const obs = new OBSWebSocket();
+
   console.log("ran")
+
+
+
+
+
 
 
 
@@ -115,22 +115,25 @@ const main = async () => {
       obsWebSocketVersion,
       negotiatedRpcVersion
     } = await obs.connect(config.obsaddress, config.obsauth, {
-      rpcVersion: 1
+      rpcVersion: 1,
+      eventSubscriptions: config.eventSubs,
     });
     console.log(`Connected to server ${obsWebSocketVersion} (using RPC ${negotiatedRpcVersion})`)
   } catch (error) {
     console.error('Failed to connect', error.code, error.message);
   }
 
+  const sceneList = await getSceneList(obs)
 
 
 
+  const updateWrapped = async () => {
+    const batch = await update(sceneList)
 
+    console.log(batch)
 
-  const updateWrapped = () => update(obs).catch(e => {
-    console.log("EXECUTION ERROR IN MAIN LOOP:");
-    console.log(e);
-  });
+    await obs.callBatch(batch)
+  };
 
   setInterval(updateWrapped, config.polling);
   updateWrapped();

@@ -15,7 +15,7 @@ const loadData = async () => {
 }
 
 const loadPage = async () => {
-  console.log(getSpreadsheetLink(config.sheetId, config.range, config.apikey, config.dimension));
+  console.log(getSpreadsheetLink(config.sheetId, config.tabname, config.range, config.apikey, config.dimension));
   const response = await axios(getSpreadsheetLink(config.sheetId, config.tabname, config.range, config.apikey, config.dimension));
   return response.data;
 }

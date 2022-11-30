@@ -4,6 +4,8 @@ Modified to work with version 5 of obs-websockets
 # WIP: Will be expanded to a standalone app later, it is purely functional for now
 
 
+## Increase eventSubs if crashing
+
 
 # Prerequisites
 - Node.js (tested on [16.7](https://nodejs.org/download/release/v16.7.0/node-v16.7.0-x64.msi))
