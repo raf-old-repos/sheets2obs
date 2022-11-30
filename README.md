@@ -1,5 +1,9 @@
-# OBS Google Sheet Importer
-This tool allows you to dynamically update content, color and visibility of text sources in OBS through a google sheet.
+# A modified version of https://github.com/RCVolus/obs-google-sheet-importer
+
+Modified to work with version 5 of obs-websockets
+# WIP: Will be expanded to a standalone app later, it is purely functional for now
+
+
 
 # Prerequisites
 - Node.js (tested on [16.7](https://nodejs.org/download/release/v16.7.0/node-v16.7.0-x64.msi))
@@ -16,7 +20,7 @@ This tool allows you to dynamically update content, color and visibility of text
 The source spreadsheet needs to be set to allow anyone with the link to view, otherwise the API connection doesn't work.
 
 ## Configuration
-Open `config-dist.json` and set the following values:
+Create a `config.json` and set the following values:
 - sheetId: The ID of the google sheet (you can copy this from the sheets link, e.g. `https://docs.google.com/spreadsheets/d/this-bit-here-is-the-sheet-id/edit#gid=0`)
 - tabname: The tab name where you need data from
 - range: The range of cells you need data from (in A1 notation, e.g. `D2:G7`)

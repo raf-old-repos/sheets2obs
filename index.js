@@ -1,20 +1,13 @@
-const OBSWebSocket = require('obs-websocket-js');
+const OBSWebSocket = require('obs-websocket-js').default;
 
 const sheetLoader = require('./sheet-loader');
 const config = require('./config.json');
 
-const getChildren = sources => {
-  let items = sources;
-  sources.forEach(source => {
-    if (source.type === 'group') {
-      items = items.concat(getChildren(source.groupChildren));
-    }
-  });
-  return items;
-}
+
 
 const update = async (obs) => {
   const data = await sheetLoader.loadData();
+  
 
   const range = config.range;
   const startcell = range.split(":")[0].trim();
@@ -29,78 +22,110 @@ const update = async (obs) => {
   const coloffset = columnToNumber(startcol[0]);
   //console.log("colum offset to array is " + coloffset);
 
-  const sceneList = await obs.send('GetSceneList');
-  await sceneList.scenes.forEach(async scene => {
-    // unfold group children
-    const allSources = getChildren(scene.sources);
+  const sceneName = "Scene"
+
+  const sceneList = await obs.call('GetSceneItemList', {
+    sceneName
+  });
+
+  console.log(sceneList)
+  await sceneList.sceneItems.forEach(async scene => {
+
 
     // console.log(scene);
-    await allSources.forEach(async source => {
-      if (source.name.includes('|sheet')) {
-        const reference = source.name.split('|sheet')[1].trim();
 
-        let col = reference.match("[a-zA-Z]+");
-        let colnumber = columnToNumber(col[0]) - coloffset;
-        
-        let row = reference.match("[0-9]+");
-        let rownumber = row[0] - rowoffset;
+    if (scene.sourceName.includes('|sheet')) {
+      const reference = scene.sourceName.split('|sheet')[1].trim();
 
-        let cellvalue = data[colnumber][rownumber];
-        console.log("Value for cell in source is " + cellvalue)
+      let col = reference.match("[a-zA-Z]+");
+      let colnumber = columnToNumber(col[0]) - coloffset;
 
-            if (cellvalue.length > 0) {
-              let color = null;
+      let row = reference.match("[0-9]+");
+      let rownumber = row[0] - rowoffset;
 
-              if (cellvalue.startsWith('?color')) {
-                const split = cellvalue.split(';');
-                cellvalue = split[1];
-                color = split[0].split('=')[1];
-                color = color.replace('#', '');
-                const color1 = color.substring(0, 2);
-                const color2 = color.substring(2, 4);
-                const color3 = color.substring(4, 6);
-                color = parseInt('ff' + color3 + color2 + color1, 16);
-              }
+      let cellvalue = data[colnumber][rownumber];
+      console.log("Value for cell in source is " + cellvalue)
 
-              if (cellvalue.startsWith('?hide')) {
-                await obs.send("SetSceneItemRender", {
-                  'scene-name': scene.name,
-                  source: source.name,
-                  render: false
-                });
-              } else if (cellvalue.startsWith('?show')) {
-                await obs.send("SetSceneItemRender", {
-                  'scene-name': scene.name,
-                  source: source.name,
-                  render: true
-                });
-              }
-              
-              
-              // Update to OBS
-              await obs.send("SetTextGDIPlusProperties", {
-                source: source.name,
-                text: cellvalue,
-                color: color
-              });
-              console.log(`Updated: ${reference} to OBS: ${source.name}`);
-            } else {
-              console.log(`Field is empty idk`)
+      if (cellvalue.length > 0) {
+        let color = null;
+
+        if (cellvalue.startsWith('?color')) {
+          const split = cellvalue.split(';');
+          cellvalue = split[1];
+          color = split[0].split('=')[1];
+          color = color.replace('#', '');
+          const color1 = color.substring(0, 2);
+          const color2 = color.substring(2, 4);
+          const color3 = color.substring(4, 6);
+          color = parseInt('ff' + color3 + color2 + color1, 16);
         }
+
+        if (cellvalue.startsWith('?hide')) {
+
+          await obs.call("SetSceneItemEnabled", {
+            sceneName,
+            sceneItemId: scene.sceneItemId,
+            sceneItemEnabled: false
+          });
+
+        } else if (cellvalue.startsWith('?show')) {
+          await obs.call("SetSceneItemEnabled", {
+            sceneName,
+            sceneItemId: scene.sceneItemId,
+            sceneItemEnabled: true
+          });
+        }
+
+       
+
+        // Update to OBS
+        await obs.call("SetInputSettings", {
+          inputName: scene.sourceName,
+          inputSettings: {
+            text: cellvalue,
+            color
+          }
+        });
+
+        console.log(`Updated: ${reference} to OBS: ${scene.sourceName}`);
+      } else {
+        console.log(`Field is empty`)
+        await obs.call("SetInputSettings", {
+          inputName: scene.sourceName,
+          inputSettings: {
+            text: "Empty Field",
+            color
+          }
+        });
       }
-    });
+    }
+
   });
 }
 
 const main = async () => {
   const obs = new OBSWebSocket();
-  if (config.obsauth != "") {
-    await obs.connect({ address: config.obsaddress, password: config.obsauth });
+  console.log("ran")
+
+
+
+
+  try {
+    const {
+      obsWebSocketVersion,
+      negotiatedRpcVersion
+    } = await obs.connect(config.obsaddress, config.obsauth, {
+      rpcVersion: 1
+    });
+    console.log(`Connected to server ${obsWebSocketVersion} (using RPC ${negotiatedRpcVersion})`)
+  } catch (error) {
+    console.error('Failed to connect', error.code, error.message);
   }
-  else {
-    await obs.connect({ address: config.obsaddress });
-  }
-  console.log('Connected to OBS!');
+
+
+
+
+
 
   const updateWrapped = () => update(obs).catch(e => {
     console.log("EXECUTION ERROR IN MAIN LOOP:");
@@ -121,5 +146,5 @@ function columnToNumber(str) {
   for (pos = 0; pos < len; pos++) {
     out += (str.charCodeAt(pos) - 64) * Math.pow(26, len - pos - 1);
   }
-  return out-1;
+  return out - 1;
 }
